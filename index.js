@@ -255,7 +255,7 @@ var mkdir = function(path, mode, callback) {
 
   if (
     Number.isNaN(info.z) ||
-    Number.isNaN(info.z) ||
+    Number.isNaN(info.y) ||
     Number.isNaN(info.x)
   ) {
     return callback(-constants.EINVAL);
