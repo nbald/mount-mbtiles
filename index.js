@@ -203,7 +203,7 @@ var release = function(path, fh, callback) {
 };
 
 var init = function(callback) {
-  new MBTiles(filename, function(err, mbtiles) {
+  new MBTiles(filename + '?mode=rwc', function(err, mbtiles) {
     if (err) throw err;
     tileStore = mbtiles;
     mbtiles.getInfo(function(err, info) {
