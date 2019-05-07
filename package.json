@@ -8,7 +8,7 @@
   "license": "BSD",
   "readmeFilename": "README.md",
   "dependencies": {
-    "fuse4js": "~0.1.2",
-    "mbtiles": "~0.2.8"
+    "@mapbox/mbtiles": "^0.10.0",
+    "fuse-bindings": "^2.11.2"
   }
 }

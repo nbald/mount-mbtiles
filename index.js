@@ -3,8 +3,8 @@ var constants = require("constants");
 var fs = require("fs"),
     path = require("path");
 
-var f4js = require("fuse4js"),
-    MBTiles = require("mbtiles");
+var fuse = require('fuse-bindings'),
+    MBTiles = require('@mapbox/mbtiles');
 
 // TODO require these arguments
 var args = process.argv.slice(2),
@@ -162,7 +162,7 @@ var open = function(path, flags, callback) {
 /**
  * read() system call handler.
  */
-var read = function(path, offset, len, buf, fh, callback) {
+var read = function(path, fh, buf, len, offset, callback) {
   var err = 0;
   var info = lookup(path);
   var maxBytes;
@@ -181,7 +181,6 @@ var read = function(path, offset, len, buf, fh, callback) {
         if (len > maxBytes) {
           len = maxBytes;
         }
-
         tile.copy(buf, 0, offset, offset + len);
         err = len;
       }
@@ -203,7 +202,6 @@ var release = function(path, fh, callback) {
 var init = function(callback) {
   new MBTiles(filename, function(err, mbtiles) {
     if (err) throw err;
-
     tileStore = mbtiles;
     mbtiles.getInfo(function(err, info) {
       if (err) throw err;
@@ -219,7 +217,7 @@ var destroy = function(callback) {
   tileStore.close(callback);
 };
 
-var statfs = function(callback) {
+var statfs = function(path, callback) {
   return callback(0, {
     bsize: 1000000,
     frsize: 1000000,
@@ -235,7 +233,8 @@ var statfs = function(callback) {
   });
 };
 
-var handlers = {
+var options = {
+  force: true,
   getattr: getattr,
   readdir: readdir,
   open: open,
@@ -257,5 +256,19 @@ fs.mkdir(mountPoint, function(err) {
     throw err;
   }
 
-  f4js.start(mountPoint, handlers, false);
+  fuse.mount(mountPoint, options, function (err) {
+    if (err) throw err
+    console.log('filesystem mounted on ' + mountPoint)
+  })
+
 });
+
+process.on('SIGINT', function () {
+  fuse.unmount(mountPoint, function (err) {
+    if (err) {
+      console.log('filesystem at ' + mountPoint + ' not unmounted', err)
+    } else {
+      console.log('filesystem at ' + mountPoint + ' unmounted')
+    }
+  })
+})
