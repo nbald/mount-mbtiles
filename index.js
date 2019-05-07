@@ -46,48 +46,43 @@ var getattr = function(path, callback) {
   var err = 0; // assume success
   var info = lookup(path);
 
-  switch(true) {
-  case info.y === undefined:
-    if (Number.isNaN(info.z) || Number.isNaN(info.x)) {
-      err = -constants.ENOENT;
-    } else {
-      stat.size = 4096; // standard size of a directory
-      stat.mode = 040777; // directory with 777 permissions
+  if (Number.isNaN(info.z) || Number.isNaN(info.z) || Number.isNaN(info.x)) {
+      return callback(-constants.ENOENT);
+  }
+
+  const isADirectory = !Number.isInteger(info.y);
+
+  info.x = Number.isInteger(info.x) ? info.x : 0;
+  info.y = Number.isInteger(info.y) ? info.y : 0;
+  info.z = Number.isInteger(info.z) ? info.z : 0;
+
+  stat.atime = new Date();
+  stat.mtime = new Date();
+  stat.ctime = new Date();
+  stat.uid = process.getuid ? process.getuid() : 0;
+  stat.gid = process.getgid ? process.getgid() : 0;
+
+  tileStore.getTile(info.z, info.x, info.y, function(err, tile, options) {
+    if (err) {
+      console.warn(err, info);
+      callback(-constants.ENOENT);
+      return;
     }
-    break;
 
-  case info.y > 0:
-    stat.mode = 0100444; // file with 444 permissions
-
-    // TODO get these from the mbtiles file (use that as the default, later
-    // store metadata elsewhere
-    stat.atime = new Date();
-    stat.mtime = new Date();
-    stat.ctime = new Date();
-
-    tileStore.getTile(info.z, info.x, info.y, function(err, tile, options) {
-      if (err) {
-        console.warn(err, info);
-        callback(-constants.ENOENT);
-        return;
-      }
-
+    console.log(tile)
+    if (isADirectory) {
+      stat.size = 4096; // standard size of a directory
+      stat.mode = 040755; // directory with 755 permissions
+    } else {
       stat.size = tile.length;
-      callback(0, stat);
-    });
-    return;
-    break;
-
-  default:
-    err = -constants.ENOENT;
-  };
-
-  callback(err, stat);
+      stat.mode = 0100644; // file with 444 permissions
+    }
+    callback(0, stat);
+  });
 };
 
 var readdir = function(path, callback) {
   var info = lookup(path);
-
   if (info.y !== undefined) {
     callback(-constants.EINVAL); // this is a file
     return;
