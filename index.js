@@ -272,6 +272,64 @@ var mkdir = function(path, mode, callback) {
   });
 }
 
+var unlink = function(path, callback) {
+  var info = lookup(path);
+  if (
+    !Number.isInteger(info.z) ||
+    !Number.isInteger(info.y) ||
+    !Number.isInteger(info.x)
+  ) {
+    return callback(-constants.ENOENT);
+  }
+
+  var conditions = [ '1' ];
+
+  if (info.x !== undefined) {
+    conditions.push(`tile_column = ${info.x}`)
+  }
+  if (info.y !== undefined) {
+    // Flip Y coordinate because MBTiles files are TMS.
+    var y = (1 << info.z) - 1 - info.y;
+    conditions.push(`tile_row = ${y}`)
+  }
+  if (info.z !== undefined) {
+    conditions.push(`zoom_level = ${info.z}`)
+  }
+
+  var where = conditions.join(' and ')
+  var query = `
+    BEGIN TRANSACTION;
+    /* delete orphaned images */
+    DELETE FROM images WHERE tile_id IN (
+      SELECT
+       full_set.tile_id
+      FROM map as full_set
+      JOIN
+      (
+       SELECT tile_id, count(tile_id) AS affected_count FROM map
+       WHERE ${where}
+       GROUP BY tile_id
+      ) AS affected
+      ON affected.tile_id = full_set.tile_id
+      GROUP BY full_set.tile_id
+      HAVING count(full_set.tile_id) - affected_count <= 0
+    );
+    /* delete tiles records */
+    DELETE FROM map WHERE ${where};
+    COMMIT;
+  `;
+
+  tileStore.startWriting(function(err) {
+    if (err) throw err;
+    tileStore._db.exec(query, function(err) {
+      if (err) throw err;
+      tileStore.stopWriting(function(err) {
+        if (err) throw err;
+        return callback(0)
+      });
+    })
+  });
+};
 var options = {
   force: true,
   getattr: getattr,
@@ -281,10 +339,10 @@ var options = {
   // write: write,
   release: release,
   // create: create,
-  // unlink: unlink,
+  unlink: unlink,
   // rename: rename,
   mkdir: mkdir,
-  // rmdir: rmdir,
+  rmdir: unlink,
   init: init,
   destroy: destroy,
   statfs: statfs
