@@ -28,7 +28,13 @@ var lookup = function(path) {
   }
 
   if (parts[3]) {
-    var y = Number(parts[3].split(".")[0]);
+    var y;
+    var matches = parts[3].match(/^(\d+)\.png$/);
+    if (matches) {
+      y = Number(matches[1]);
+    } else {
+      y = NaN;
+    }
   }
 
   return {
