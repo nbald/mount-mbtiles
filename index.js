@@ -43,11 +43,10 @@ var lookup = function(path) {
  */
 var getattr = function(path, callback) {
   var stat = {};
-  var err = 0; // assume success
   var info = lookup(path);
 
   if (Number.isNaN(info.z) || Number.isNaN(info.z) || Number.isNaN(info.x)) {
-      return callback(-constants.ENOENT);
+    return callback(-constants.ENOENT);
   }
 
   const isADirectory = !Number.isInteger(info.y);
@@ -69,16 +68,18 @@ var getattr = function(path, callback) {
       return;
     }
 
-    console.log(tile)
     if (isADirectory) {
       stat.size = 4096; // standard size of a directory
       stat.mode = 040755; // directory with 755 permissions
     } else {
+      if (tile.length === 0) return callback(-constants.ENOENT);
       stat.size = tile.length;
       stat.mode = 0100644; // file with 444 permissions
     }
+
     callback(0, stat);
   });
+  return
 };
 
 var readdir = function(path, callback) {
@@ -89,7 +90,7 @@ var readdir = function(path, callback) {
   }
 
   if (info.x !== undefined) {
-    var query = tileStore._db.prepare("SELECT DISTINCT tile_row FROM tiles WHERE tile_column = ? AND zoom_level = ?", function(err) {
+    var query = tileStore._db.prepare("SELECT max(length(tile_data)) as max_size, tile_row FROM tiles WHERE tile_column = ? AND zoom_level = ? GROUP BY tile_row", function(err) {
       if (err) {
         console.warn("readdir:", err, info);
         callback(-constants.EINVAL);
@@ -97,7 +98,11 @@ var readdir = function(path, callback) {
       }
 
       query.all(info.x, info.z, function(err, rows) {
-        var names = rows.map(function(x) {
+        var names = rows
+        .filter(function(x) {
+          return x.max_size > 0;
+        })
+        .map(function(x) {
           var y = (1 << info.z) - 1 - x.tile_row;
           // TODO get format from info
           return String(y) + ".png";
@@ -122,6 +127,9 @@ var readdir = function(path, callback) {
         var names = rows.map(function(x) {
           return String(x.tile_column);
         });
+        if (names.length === 0) {
+          return callback(fuse.ENOENT);
+        }
 
         callback(0, names);
       });
@@ -228,6 +236,36 @@ var statfs = function(path, callback) {
   });
 };
 
+var mkdir = function(path, mode, callback) {
+  // TODO do we need to check if path already exists?
+  var info = lookup(path);
+
+  if (
+    Number.isNaN(info.z) ||
+    Number.isNaN(info.z) ||
+    Number.isNaN(info.x)
+  ) {
+    return callback(-constants.EINVAL);
+  }
+
+  info.x = Number.isInteger(info.x) ? info.x : 0;
+  info.y = Number.isInteger(info.y) ? info.y : 0;
+  info.z = Number.isInteger(info.z) ? info.z : 0;
+
+  const emptyTile = new Buffer(0);
+
+  tileStore.startWriting(function(err) {
+    if (err) throw err;
+    tileStore.putTile(info.z, info.x, info.y, emptyTile, function(err) {
+      if (err) throw err;
+      tileStore.stopWriting(function(err) {
+        if (err) throw err;
+        return callback(0)
+      });
+    })
+  });
+}
+
 var options = {
   force: true,
   getattr: getattr,
@@ -239,7 +277,7 @@ var options = {
   // create: create,
   // unlink: unlink,
   // rename: rename,
-  // mkdir: mkdir,
+  mkdir: mkdir,
   // rmdir: rmdir,
   init: init,
   destroy: destroy,
