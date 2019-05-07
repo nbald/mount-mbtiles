@@ -4,7 +4,8 @@ var fs = require("fs"),
     path = require("path");
 
 var fuse = require('fuse-bindings'),
-    MBTiles = require('@mapbox/mbtiles');
+    MBTiles = require('@mapbox/mbtiles'),
+    SmartBuffer = require('smart-buffer').SmartBuffer;
 
 // TODO require these arguments
 var args = process.argv.slice(2),
@@ -12,6 +13,8 @@ var args = process.argv.slice(2),
     mountPoint = path.resolve(args.shift());
 
 var tileStore;
+
+var filesBeingWritten = {};
 
 /**
  * Convert a path into XYZ coords.
@@ -158,6 +161,7 @@ var readdir = function(path, callback) {
  * open() system call handler.
  */
 var open = function(path, flags, callback) {
+  // TODO open for writing
   var err = 0;
   var info = lookup(path);
 
@@ -205,6 +209,9 @@ var read = function(path, fh, buf, len, offset, callback) {
  * release() system call handler.
  */
 var release = function(path, fh, callback) {
+  if (path in filesBeingWritten) {
+    return commitWrite(path, callback)
+  }
   callback(0);
 };
 
@@ -330,15 +337,67 @@ var unlink = function(path, callback) {
     })
   });
 };
+
+var create = function (path, mode, callback) {
+  // no path check here to avoid problems with temp files
+  filesBeingWritten[path] = new SmartBuffer();
+  callback(0);
+}
+
+var write = function (path, fh, buf, len, offset, callback) {
+  if (!(path in filesBeingWritten)) {
+    return callback(-constants.EINVAL)
+  }
+  filesBeingWritten[path].writeBuffer(buf.slice(0, len), offset)
+  callback(len)
+}
+
+var commitWrite = function (path, callback) {
+  var end = function (err, status) {
+    filesBeingWritten[path].destroy();
+    delete filesBeingWritten[path];
+    if (err) throw err;
+    callback(status)
+  }
+
+  var info = lookup(path);
+  if (
+    !Number.isInteger(info.z) ||
+    !Number.isInteger(info.y) ||
+    !Number.isInteger(info.x)
+  ) {
+    return end(null, -constants.EINVAL) // end(-constants.EINVAL);
+  }
+
+  tileStore.startWriting(function(err) {
+    if (err) return end(err);
+    tileStore.putTile(info.z, info.x, info.y, filesBeingWritten[path].toBuffer(), function(err) {
+      if (err) return end(err);
+      tileStore.stopWriting(function(err) {
+        if (err) return end(err);
+        return end(null, 0)
+      });
+    })
+  });
+}
+
+var truncate = function (path, size, callback) {
+  if (size !== 0) {
+    return callback(-constants.EINVAL);
+  }
+  create(path, 0100644, callback);
+}
+
 var options = {
   force: true,
   getattr: getattr,
   readdir: readdir,
   open: open,
+  truncate: truncate,
   read: read,
-  // write: write,
+  write: write,
   release: release,
-  // create: create,
+  create: create,
   unlink: unlink,
   // rename: rename,
   mkdir: mkdir,
