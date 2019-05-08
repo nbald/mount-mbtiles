@@ -282,9 +282,9 @@ var mkdir = function(path, mode, callback) {
 var unlink = function(path, callback) {
   var info = lookup(path);
   if (
-    !Number.isInteger(info.z) ||
-    !Number.isInteger(info.y) ||
-    !Number.isInteger(info.x)
+    Number.isNaN(info.z) ||
+    Number.isNaN(info.y) ||
+    Number.isNaN(info.x)
   ) {
     return callback(-constants.ENOENT);
   }
