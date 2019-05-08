@@ -51,44 +51,64 @@ var lookup = function(path) {
  * getattr() system call handler.
  */
 var getattr = function(path, callback) {
-  var stat = {};
-  var info = lookup(path);
+  var stat = {
+    // atime: new Date(),
+    // mtime: new Date(),
+    // ctime: new Date(),
+    uid: process.getuid ? process.getuid() : 0,
+    gid: process.getgid ? process.getgid() : 0
+  };
 
-  if (Number.isNaN(info.z) || Number.isNaN(info.z) || Number.isNaN(info.x)) {
+  if (path === '/') {
+    stat.size = 4096; // standard size of a directory
+    stat.mode = 040755; // directory with 755 permissions
+    return callback(0, stat);
+  } else if (path in filesBeingWritten) {
+    stat.mode = 0100644;
+    stat.size = filesBeingWritten[path].length
+    return callback(0, stat);
+  }
+
+
+  var info = lookup(path);
+  if (
+    Number.isNaN(info.z) ||
+    Number.isNaN(info.y) ||
+    Number.isNaN(info.x)) {
     return callback(-constants.ENOENT);
   }
 
-  const isADirectory = !Number.isInteger(info.y);
-
-  info.x = Number.isInteger(info.x) ? info.x : 0;
-  info.y = Number.isInteger(info.y) ? info.y : 0;
-  info.z = Number.isInteger(info.z) ? info.z : 0;
-
-  stat.atime = new Date();
-  stat.mtime = new Date();
-  stat.ctime = new Date();
-  stat.uid = process.getuid ? process.getuid() : 0;
-  stat.gid = process.getgid ? process.getgid() : 0;
-
-  tileStore.getTile(info.z, info.x, info.y, function(err, tile, options) {
-    if (err) {
-      console.warn(err, info);
-      callback(-constants.ENOENT);
-      return;
-    }
-
-    if (isADirectory) {
-      stat.size = 4096; // standard size of a directory
-      stat.mode = 040755; // directory with 755 permissions
-    } else {
+  var isADirectory = !Number.isInteger(info.y);
+  if (isADirectory) {
+    stat.size = 4096; // standard size of a directory
+    stat.mode = 040755; // directory with 755 permissions
+    var x = Number.isInteger(info.x) ? info.x : 0;
+    var z = Number.isInteger(info.z) ? info.z : 0;
+    var sql = "SELECT tile_id FROM map WHERE zoom_level = ? AND tile_column = ? LIMIT 1"
+    var query = tileStore._db.prepare(sql, function(err) {
+      if (err) {
+        console.warn("getattr:", err, info);
+        callback(-constants.EINVAL);
+        return;
+      }
+      query.get(z, x, function(err, result) {
+        if (err) {
+          console.warn("getattr:", err, info);
+          callback(-constants.EINVAL);
+          return;
+        }
+        return callback(result === undefined ? -constants.ENOENT : 0, stat)
+      });
+    });
+  } else {
+    tileStore.getTile(info.z, info.x, info.y, function(err, tile, options) {
+      if (err) return callback(-constants.ENOENT);
       if (tile.length === 0) return callback(-constants.ENOENT);
       stat.size = tile.length;
       stat.mode = 0100644; // file with 444 permissions
-    }
-
-    callback(0, stat);
-  });
-  return
+      callback(0, stat);
+    });
+  }
 };
 
 var readdir = function(path, callback) {
