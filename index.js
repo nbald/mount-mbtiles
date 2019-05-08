@@ -339,7 +339,14 @@ var unlink = function(path, callback) {
 };
 
 var create = function (path, mode, callback) {
-  // no path check here to avoid problems with temp files
+  var info = lookup(path);
+  if (
+    !Number.isInteger(info.z) ||
+    !Number.isInteger(info.y) ||
+    !Number.isInteger(info.x)
+  ) {
+    return callback(-constants.EINVAL)
+  }
   filesBeingWritten[path] = new SmartBuffer();
   callback(0);
 }
@@ -361,13 +368,6 @@ var commitWrite = function (path, callback) {
   }
 
   var info = lookup(path);
-  if (
-    !Number.isInteger(info.z) ||
-    !Number.isInteger(info.y) ||
-    !Number.isInteger(info.x)
-  ) {
-    return end(null, -constants.EINVAL) // end(-constants.EINVAL);
-  }
 
   tileStore.startWriting(function(err) {
     if (err) return end(err);
@@ -382,9 +382,16 @@ var commitWrite = function (path, callback) {
 }
 
 var truncate = function (path, size, callback) {
-  if (size !== 0) {
-    return callback(-constants.EINVAL);
+  var info = lookup(path);
+  if (
+    !Number.isInteger(info.z) ||
+    !Number.isInteger(info.y) ||
+    !Number.isInteger(info.x) ||
+    size !== 0
+  ) {
+    return callback(-constants.EINVAL)
   }
+
   create(path, 0100644, callback);
 }
 
