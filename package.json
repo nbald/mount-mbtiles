@@ -1,10 +1,10 @@
 {
-  "name": "fuse-mbtiles",
-  "version": "0.0.0",
-  "description": "FUSE filesystem for MBTiles",
-  "homepage": "https://github.com/mojodna/node-fuse-mbtiles",
-  "repository": "https://github.com/mojodna/node-fuse-mbtiles.git",
-  "author": "Seth Fitzsimmons <seth@mojodna.net>",
+  "name": "mount-mbtiles",
+  "version": "1.0.0",
+  "description": "Mount MBTiles file as a Read / Write FUSE filesystem",
+  "homepage": "https://github.com/nbald/mount-mbtiles",
+  "repository": "https://github.com/nbald/mount-mbtiles.git",
+  "author": "Nicolas Baldeck <n@baldeck.net>",
   "license": "BSD",
   "readmeFilename": "README.md",
   "dependencies": {

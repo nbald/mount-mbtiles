@@ -1,11 +1,12 @@
-# fuse-mbtiles
+# mount.mbtiles
+Mount MBTiles files as a Read / Write FUSE filesystem
 
-I am a read-only FUSE filesystem for [MBTiles](http://mbtiles.org).
+Extended from https://github.com/mojodna/node-fuse-mbtiles
 
-## Installation
+**Experimental - Use at your own risks**
 
-### OS X
+*Only PNG tiles are implemented*
 
-Install [FUSE for OS X](http://osxfuse.github.com/).
+`npm install -g mount.mbtiles`
 
-`npm install`
+`mount.mbtiles {file.mbtiles} {mountpont}`
