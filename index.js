@@ -59,16 +59,11 @@ var getattr = function(path, callback) {
     gid: process.getgid ? process.getgid() : 0
   };
 
-  if (path === '/') {
-    stat.size = 4096; // standard size of a directory
-    stat.mode = 040755; // directory with 755 permissions
-    return callback(0, stat);
-  } else if (path in filesBeingWritten) {
+  if (path in filesBeingWritten) {
     stat.mode = 0100644;
     stat.size = filesBeingWritten[path].length
     return callback(0, stat);
   }
-
 
   var info = lookup(path);
   if (
@@ -78,38 +73,44 @@ var getattr = function(path, callback) {
     return callback(-constants.ENOENT);
   }
 
-  var isADirectory = !Number.isInteger(info.y);
-  if (isADirectory) {
-    stat.size = 4096; // standard size of a directory
-    stat.mode = 040755; // directory with 755 permissions
-    var x = Number.isInteger(info.x) ? info.x : 0;
-    var z = Number.isInteger(info.z) ? info.z : 0;
-    var sql = "SELECT tile_id FROM map WHERE zoom_level = ? AND tile_column = ? LIMIT 1"
-    var query = tileStore._db.prepare(sql, function(err) {
-      if (err) {
-        console.warn("getattr:", err, info);
-        callback(-constants.ENOENT);
-        return;
-      }
-      query.get(z, x, function(err, result) {
-        if (err) {
-          console.warn("getattr:", err, info);
-          callback(-constants.ENOENT);
-          return;
-        }
-        return callback(result === undefined ? -constants.ENOENT : 0, stat)
-      });
-    });
-  } else {
-    // TODO do not get the tile but do only a quick sql check
-    tileStore.getTile(info.z, info.x, info.y, function(err, tile, options) {
-      if (err) return callback(-constants.ENOENT);
-      if (tile.length === 0) return callback(-constants.ENOENT);
-      stat.size = tile.length;
-      stat.mode = 0100644; // file with 444 permissions
-      callback(0, stat);
-    });
+  var isADirectory = true;
+
+  var conditions = [ '1' ];
+
+  if (info.x !== undefined) {
+    conditions.push(`tile_column = ${info.x}`)
   }
+  if (info.y !== undefined) {
+    // Flip Y coordinate because MBTiles files are TMS.
+    var y = (1 << info.z) - 1 - info.y;
+    conditions.push(`tile_row = ${y}`)
+    isADirectory = false;
+  }
+  if (info.z !== undefined) {
+    conditions.push(`zoom_level = ${info.z}`)
+  }
+
+  var where = conditions.join(' and ')
+
+  var sql = `
+    SELECT length(tile_data) as size
+    FROM tiles
+    WHERE ${where}
+    LIMIT 1
+  `
+
+  tileStore._db.get(sql, function(err, row) {
+    if (err) throw err;
+    if (row === undefined) return callback(-constants.ENOENT);
+    if (isADirectory) {
+      stat.size = 4096; // standard size of a directory
+      stat.mode = 040755; // directory with 755 permissions
+    } else {
+      stat.size = row.size;
+      stat.mode = 0100644; // file with 444 permissions
+    }
+    callback(0, stat);
+  });
 };
 
 var readdir = function(path, callback) {
