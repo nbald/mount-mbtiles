@@ -88,19 +88,20 @@ var getattr = function(path, callback) {
     var query = tileStore._db.prepare(sql, function(err) {
       if (err) {
         console.warn("getattr:", err, info);
-        callback(-constants.EINVAL);
+        callback(-constants.ENOENT);
         return;
       }
       query.get(z, x, function(err, result) {
         if (err) {
           console.warn("getattr:", err, info);
-          callback(-constants.EINVAL);
+          callback(-constants.ENOENT);
           return;
         }
         return callback(result === undefined ? -constants.ENOENT : 0, stat)
       });
     });
   } else {
+    // TODO do not get the tile but do only a quick sql check
     tileStore.getTile(info.z, info.x, info.y, function(err, tile, options) {
       if (err) return callback(-constants.ENOENT);
       if (tile.length === 0) return callback(-constants.ENOENT);
