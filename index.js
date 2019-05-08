@@ -417,23 +417,35 @@ var truncate = function (path, size, callback) {
   create(path, 0100644, callback);
 }
 
+var catchErrors = function (originalFunction) {
+  return function () {
+    try {
+      originalFunction.apply(null, arguments);
+    } catch (err) {
+      var callback = arguments[arguments.length - 1]
+      console.error(err);
+      callback(-constants.EIO)
+    }
+  }
+}
+
 var options = {
   force: true,
-  getattr: getattr,
-  readdir: readdir,
-  open: open,
-  truncate: truncate,
-  read: read,
-  write: write,
-  release: release,
-  create: create,
-  unlink: unlink,
-  // rename: rename,
-  mkdir: mkdir,
-  rmdir: unlink,
+  getattr: catchErrors(getattr),
+  readdir: catchErrors(readdir),
+  open: catchErrors(open),
+  truncate: catchErrors(truncate),
+  read: catchErrors(read),
+  write: catchErrors(write),
+  release: catchErrors(release),
+  create: catchErrors(create),
+  unlink: catchErrors(unlink),
+  // rename: catchErrors(rename),
+  mkdir: catchErrors(mkdir),
+  rmdir: catchErrors(unlink),
   init: init,
-  destroy: destroy,
-  statfs: statfs
+  destroy: catchErrors(destroy),
+  statfs: catchErrors(statfs)
 };
 
 fs.mkdir(mountPoint, function(err) {
