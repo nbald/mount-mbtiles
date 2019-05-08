@@ -1,5 +1,5 @@
 {
-  "name": "mount-mbtiles",
+  "name": "mount.mbtiles",
   "version": "1.0.0",
   "description": "Mount MBTiles file as a Read / Write FUSE filesystem",
   "homepage": "https://github.com/nbald/mount-mbtiles",
