@@ -59,7 +59,11 @@ var getattr = function(path, callback) {
     gid: process.getgid ? process.getgid() : 0
   };
 
-  if (path in filesBeingWritten) {
+  if (path === '/') {
+    stat.size = 4096; // standard size of a directory
+    stat.mode = 040755; // directory with 755 permissions
+    return callback(0, stat);
+  } else if (path in filesBeingWritten) {
     stat.mode = 0100644;
     stat.size = filesBeingWritten[path].length
     return callback(0, stat);
@@ -100,7 +104,6 @@ var getattr = function(path, callback) {
   `
 
   tileStore._db.get(sql, function(err, row) {
-    if (err) throw err;
     if (row === undefined) return callback(-constants.ENOENT);
     if (isADirectory) {
       stat.size = 4096; // standard size of a directory
@@ -108,6 +111,12 @@ var getattr = function(path, callback) {
     } else {
       stat.size = row.size;
       stat.mode = 0100644; // file with 444 permissions
+    }
+    if (err) {
+      // throw err;
+      // the table may not exist yet if the mbtiles file is new
+      console.error(err);
+      return callback(-constants.ENOENT);
     }
     callback(0, stat);
   });
