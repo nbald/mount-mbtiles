@@ -337,6 +337,7 @@ var unlink = function(path, callback) {
     conditions.push(`zoom_level = ${info.z}`)
   }
 
+  // BUG the dir gets deleted when tile 0.png is deleted
   var where = conditions.join(' and ')
   var query = `
     BEGIN TRANSACTION;
