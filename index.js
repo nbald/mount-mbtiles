@@ -138,6 +138,7 @@ var readdir = function(path, callback) {
       }
 
       query.all(info.x, info.z, function(err, rows) {
+        if (!rows) return callback(0, []);
         var names = rows
         .filter(function(x) {
           return x.max_size > 0;
@@ -164,6 +165,7 @@ var readdir = function(path, callback) {
       }
 
       query.all(info.z, function(err, rows) {
+        if (!rows) return callback(0, []);
         var names = rows.map(function(x) {
           return String(x.tile_column);
         });
@@ -180,6 +182,7 @@ var readdir = function(path, callback) {
 
   // TODO use (cached) getInfo to determine this
   tileStore._db.all("SELECT DISTINCT zoom_level FROM tiles", function(err, rows) {
+    if (!rows) return callback(0, []);
     var names = rows.map(function(x) {
       return String(x.zoom_level);
     });
