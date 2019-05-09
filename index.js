@@ -431,6 +431,7 @@ var truncate = function (path, size, callback) {
 }
 
 var catchErrors = function (originalFunction) {
+  // BUG: does not work when the error is thrown from a callback?
   return function () {
     try {
       originalFunction.apply(null, arguments);
