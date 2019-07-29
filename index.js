@@ -51,6 +51,7 @@ var lookup = function(path) {
  * getattr() system call handler.
  */
 var getattr = function(path, callback) {
+  console.log('getattr', path);
   var stat = {
     // atime: new Date(),
     // mtime: new Date(),
@@ -284,6 +285,7 @@ var statfs = function(path, callback) {
 };
 
 var mkdir = function(path, mode, callback) {
+  console.log('mkdir', path);
   // TODO do we need to check if path already exists?
   var info = lookup(path);
 
@@ -314,6 +316,7 @@ var mkdir = function(path, mode, callback) {
 }
 
 var unlink = function(path, callback) {
+  console.log('unlink', path);
   var info = lookup(path);
   if (
     Number.isNaN(info.z) ||
@@ -395,6 +398,7 @@ var write = function (path, fh, buf, len, offset, callback) {
 }
 
 var commitWrite = function (path, callback) {
+  console.log('commitWrite', path);
   var end = function (err, status) {
     filesBeingWritten[path].destroy();
     delete filesBeingWritten[path];
